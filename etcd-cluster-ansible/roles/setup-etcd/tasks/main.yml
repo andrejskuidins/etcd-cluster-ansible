@@ -98,7 +98,7 @@
     path: "{{ etcd_cert_dir }}/server.csr"
     privatekey_path: "{{ etcd_server_key }}"
     common_name: "etcd-server"
-    subject_alt_name: "{% for node in etcd_nodes %}IP:{{ node.ip }},DNS:{{ node.name }}{% if not loop.last %},{% endif %}{% endfor %}"
+    subject_alt_name: "IP:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='ip') | first }},DNS:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='name') | first }},DNS:{{ ansible_hostname }}"
 
 - name: Generate server certificate
   openssl_certificate:
@@ -119,7 +119,7 @@
     path: "{{ etcd_cert_dir }}/peer.csr"
     privatekey_path: "{{ etcd_peer_key }}"
     common_name: "etcd-peer"
-    subject_alt_name: "{% for node in etcd_nodes %}IP:{{ node.ip }},DNS:{{ node.name }}{% if not loop.last %},{% endif %}{% endfor %}"
+    subject_alt_name: "IP:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='ip') | first }},DNS:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='name') | first }},DNS:{{ ansible_hostname }}"
 
 - name: Generate peer certificate
   openssl_certificate:
