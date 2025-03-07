@@ -87,6 +87,11 @@
     - "{{ etcd_ca_key }}"
   when: inventory_hostname != "node1"  # Skip the first node
 
+# Create certificates with all node IPs and hostnames in the SAN field
+- name: Generate all-nodes SAN list
+  set_fact:
+    all_nodes_san: "{% for node in etcd_nodes %}IP:{{ node.ip }},DNS:{{ node.name }}{% if not loop.last %},{% endif %}{% endfor %},IP:127.0.0.1,DNS:localhost,DNS:{{ ansible_hostname }}"
+
 # These certificate tasks now run on all nodes using the same CA
 - name: Generate server private key
   openssl_privatekey:
@@ -97,8 +102,8 @@
   openssl_csr:
     path: "{{ etcd_cert_dir }}/server.csr"
     privatekey_path: "{{ etcd_server_key }}"
-    common_name: "etcd-server"
-    subject_alt_name: "IP:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='ip') | first }},DNS:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='name') | first }},DNS:{{ ansible_hostname }}"
+    common_name: "{{ inventory_hostname }}"
+    subject_alt_name: "{{ all_nodes_san }}"
 
 - name: Generate server certificate
   openssl_certificate:
@@ -118,8 +123,8 @@
   openssl_csr:
     path: "{{ etcd_cert_dir }}/peer.csr"
     privatekey_path: "{{ etcd_peer_key }}"
-    common_name: "etcd-peer"
-    subject_alt_name: "IP:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='ip') | first }},DNS:{{ etcd_nodes | selectattr('name', '==', inventory_hostname) | map(attribute='name') | first }},DNS:{{ ansible_hostname }}"
+    common_name: "{{ inventory_hostname }}"
+    subject_alt_name: "{{ all_nodes_san }}"
 
 - name: Generate peer certificate
   openssl_certificate:
@@ -140,6 +145,7 @@
     path: "{{ etcd_cert_dir }}/client.csr"
     privatekey_path: "{{ etcd_client_key }}"
     common_name: "etcd-client"
+    subject_alt_name: "{{ all_nodes_san }}"
 
 - name: Generate client certificate
   openssl_certificate:
