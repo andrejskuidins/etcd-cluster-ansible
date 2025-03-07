@@ -1,0 +1,4 @@
+[etcd_cluster]
+node1 ansible_host=10.0.1.244
+node2 ansible_host=10.0.1.23
+node3 ansible_host=10.0.1.152

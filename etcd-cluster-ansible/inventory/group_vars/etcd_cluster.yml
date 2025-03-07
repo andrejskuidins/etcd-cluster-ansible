@@ -1,0 +1,31 @@
+etcd_version: v3.5.9
+
+etcd_nodes:
+  - name: node1
+    ip: 10.0.1.244
+  - name: node2
+    ip: 10.0.1.23
+  - name: node3
+    ip: 10.0.1.152
+
+etcd_data_dir: /var/lib/etcd
+etcd_config_dir: /etc/etcd
+etcd_cluster_token: etcd-cluster
+
+# Default variables for etcd multi-tenant setup
+etcdctl_bin: /usr/local/bin/etcdctl
+etcd_endpoint: "http://127.0.0.1:2379"
+tenant_user: tenant1
+tenant_role: tenant-role
+tenant_prefix: "/tenant1/"
+
+# Default variables for etcd PKI setup
+etcd_cert_dir: /etc/etcd/ssl
+etcd_ca_cert: "{{ etcd_cert_dir }}/ca.pem"
+etcd_ca_key: "{{ etcd_cert_dir }}/ca-key.pem"
+etcd_server_cert: "{{ etcd_cert_dir }}/server.pem"
+etcd_server_key: "{{ etcd_cert_dir }}/server-key.pem"
+etcd_peer_cert: "{{ etcd_cert_dir }}/peer.pem"
+etcd_peer_key: "{{ etcd_cert_dir }}/peer-key.pem"
+etcd_client_cert: "{{ etcd_cert_dir }}/client.pem"
+etcd_client_key: "{{ etcd_cert_dir }}/client-key.pem"

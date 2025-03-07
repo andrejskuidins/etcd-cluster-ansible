@@ -1,0 +1,43 @@
+---
+- name: Ensure etcd authentication is enabled
+  command: "{{ etcdctl_bin }} --user=root:{{ root_password }} auth enable"
+  register: auth_enabled
+  changed_when: "'Authentication Already Enabled' not in auth_enabled.stderr"
+  ignore_errors: true
+
+- name: Check if tenant role exists
+  command: "{{ etcdctl_bin }} --user=root:{{ root_password }} role list"
+  register: tenant_role_list_output
+  when: auth_enabled is succeeded or ('Authentication Already Enabled' in auth_enabled.stderr)
+
+- name: Create tenant role if it does not exist
+  command: "{{ etcdctl_bin }} --user=root:{{ root_password }} role add {{ tenant_role }}"
+  when: tenant_role not in tenant_role_list_output.stdout_lines and (auth_enabled is succeeded or ('Authentication Already Enabled' in auth_enabled.stderr))
+
+- name: Grant permissions to tenant role
+  command: "{{ etcdctl_bin }} --user=root:{{ root_password }} role grant-permission {{ tenant_role }} readwrite {{ tenant_prefix }}"
+  when: auth_enabled is succeeded or ('Authentication Already Enabled' in auth_enabled.stderr)
+
+- name: Check if tenant user exists
+  command: "{{ etcdctl_bin }} --user=root:{{ root_password }} user list"
+  register: tenant_user_list_output
+  when: auth_enabled is succeeded or ('Authentication Already Enabled' in auth_enabled.stderr)
+
+- name: Create tenant user
+  command: "{{ etcdctl_bin }} --user=root:{{ root_password }} user add {{ tenant_user }}:{{ tenant_password }}"
+  when: tenant_user not in tenant_user_list_output.stdout_lines and (auth_enabled is succeeded or ('Authentication Already Enabled' in auth_enabled.stderr))
+
+- name: Grant tenant role to tenant user
+  command: "{{ etcdctl_bin }} --user=root:{{ root_password }} user grant-role {{ tenant_user }} {{ tenant_role }}"
+  when: auth_enabled is succeeded or ('Authentication Already Enabled' in auth_enabled.stderr)
+
+- name: Verify tenant user access
+  command: "{{ etcdctl_bin }} --user={{ tenant_user }}:{{ tenant_password }} get {{ tenant_prefix }}"
+  register: verify_access
+  changed_when: false
+  when: auth_enabled is succeeded or ('Authentication Already Enabled' in auth_enabled.stderr)
+
+- name: Display verification result
+  debug:
+    msg: "Tenant user access verified: {{ verify_access.stdout }}"
+  when: verify_access is defined

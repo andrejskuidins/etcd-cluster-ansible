@@ -1,0 +1,190 @@
+---
+# This task block runs only on the first node (node1)
+- name: CA Generation Tasks - First Node Only
+  block:
+    - name: Ensure etcd SSL directory exists on first node
+      file:
+        path: "{{ etcd_cert_dir }}"
+        state: directory
+        mode: 0755
+
+    - name: Generate CA private key
+      openssl_privatekey:
+        path: "{{ etcd_ca_key }}"
+        size: 2048
+
+    - name: Generate CA certificate signing request (CSR)
+      openssl_csr:
+        path: "{{ etcd_cert_dir }}/ca.csr"
+        privatekey_path: "{{ etcd_ca_key }}"
+        common_name: "etcd CA"
+        subject_alt_name: "DNS:ca"
+
+    - name: Generate CA certificate
+      openssl_certificate:
+        path: "{{ etcd_ca_cert }}"
+        csr_path: "{{ etcd_cert_dir }}/ca.csr"
+        privatekey_path: "{{ etcd_ca_key }}"
+        provider: selfsigned
+        selfsigned_not_after: +3650d  # 10 years
+
+    - name: Fetch CA certificate and key to control node
+      fetch:
+        src: "{{ item }}"
+        dest: "files/etcd-ca/"
+        flat: yes
+      loop:
+        - "{{ etcd_ca_cert }}"
+        - "{{ etcd_ca_key }}"
+  when: inventory_hostname == "node1"  # Run only on first etcd node
+
+# This runs on all nodes
+- name: Download etcd binary
+  get_url:
+    url: "https://github.com/etcd-io/etcd/releases/download/{{ etcd_version }}/etcd-{{ etcd_version }}-linux-amd64.tar.gz"
+    dest: "/tmp/etcd.tar.gz"
+    mode: '0644'
+
+- name: Extract etcd binary
+  unarchive:
+    src: "/tmp/etcd.tar.gz"
+    dest: "/usr/local/bin/"
+    remote_src: yes
+    extra_opts:
+      - --strip-components=1
+
+- name: Create etcd system user
+  user:
+    name: etcd
+    system: yes
+    shell: /sbin/nologin
+
+- name: Create etcd directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: etcd
+    group: etcd
+    mode: '0755'
+  loop:
+    - "{{ etcd_data_dir }}"
+    - "{{ etcd_config_dir }}"
+
+- name: Ensure etcd SSL directory exists on all nodes
+  file:
+    path: "{{ etcd_cert_dir }}"
+    state: directory
+    mode: 0755
+
+# Copy CA files to all non-first nodes
+- name: Copy CA certificate and key to other nodes
+  copy:
+    src: "files/etcd-ca/{{ item | basename }}"
+    dest: "{{ item }}"
+    mode: 0644
+  loop:
+    - "{{ etcd_ca_cert }}"
+    - "{{ etcd_ca_key }}"
+  when: inventory_hostname != "node1"  # Skip the first node
+
+# These certificate tasks now run on all nodes using the same CA
+- name: Generate server private key
+  openssl_privatekey:
+    path: "{{ etcd_server_key }}"
+    size: 2048
+
+- name: Generate server certificate signing request (CSR)
+  openssl_csr:
+    path: "{{ etcd_cert_dir }}/server.csr"
+    privatekey_path: "{{ etcd_server_key }}"
+    common_name: "etcd-server"
+    subject_alt_name: "{% for node in etcd_nodes %}IP:{{ node.ip }},DNS:{{ node.name }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+- name: Generate server certificate
+  openssl_certificate:
+    path: "{{ etcd_server_cert }}"
+    csr_path: "{{ etcd_cert_dir }}/server.csr"
+    ownca_path: "{{ etcd_ca_cert }}"
+    ownca_privatekey_path: "{{ etcd_ca_key }}"
+    provider: ownca
+    selfsigned_not_after: +365d  # 1 year
+
+- name: Generate peer private key
+  openssl_privatekey:
+    path: "{{ etcd_peer_key }}"
+    size: 2048
+
+- name: Generate peer certificate signing request (CSR)
+  openssl_csr:
+    path: "{{ etcd_cert_dir }}/peer.csr"
+    privatekey_path: "{{ etcd_peer_key }}"
+    common_name: "etcd-peer"
+    subject_alt_name: "{% for node in etcd_nodes %}IP:{{ node.ip }},DNS:{{ node.name }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+- name: Generate peer certificate
+  openssl_certificate:
+    path: "{{ etcd_peer_cert }}"
+    csr_path: "{{ etcd_cert_dir }}/peer.csr"
+    ownca_path: "{{ etcd_ca_cert }}"
+    ownca_privatekey_path: "{{ etcd_ca_key }}"
+    provider: ownca
+    selfsigned_not_after: +365d  # 1 year
+
+- name: Generate client private key
+  openssl_privatekey:
+    path: "{{ etcd_client_key }}"
+    size: 2048
+
+- name: Generate client certificate signing request (CSR)
+  openssl_csr:
+    path: "{{ etcd_cert_dir }}/client.csr"
+    privatekey_path: "{{ etcd_client_key }}"
+    common_name: "etcd-client"
+
+- name: Generate client certificate
+  openssl_certificate:
+    path: "{{ etcd_client_cert }}"
+    csr_path: "{{ etcd_cert_dir }}/client.csr"
+    ownca_path: "{{ etcd_ca_cert }}"
+    ownca_privatekey_path: "{{ etcd_ca_key }}"
+    provider: ownca
+    selfsigned_not_after: +365d  # 1 year
+
+- name: Change ownership of etcd SSL files
+  file:
+    path: "{{ etcd_cert_dir }}"
+    owner: etcd
+    group: etcd
+    recurse: yes
+
+- name: Generate etcd configuration
+  template:
+    src: etcd.conf.yml.j2
+    dest: "{{ etcd_config_dir }}/etcd.conf.yml"
+    owner: etcd
+    group: etcd
+    mode: '0644'
+  notify: Restart etcd
+
+- name: Create etcd systemd service
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    mode: '0644'
+  notify: Restart etcd
+
+- name: Update /etc/hosts with etcd_nodes
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.name }}"
+    regexp: "^{{ item.ip }}\\s"
+    state: present
+    create: yes
+  loop: "{{ etcd_nodes }}"
+
+- name: Reload systemd and enable etcd
+  systemd:
+    daemon_reload: yes
+    name: etcd
+    enabled: yes
+    state: started
