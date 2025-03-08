@@ -1,0 +1,20 @@
+---
+- name: Generate and Distribute etcd Certificates
+  hosts: etcd_cluster
+  roles:
+    - generate-etcd-certs
+
+- name: Setup HA etcd Cluster
+  hosts: etcd_cluster
+  become: true
+  gather_facts: yes
+  roles:
+    - setup-etcd
+
+- name: Configure etcd for multi-tenant usage
+  hosts: etcd_cluster
+  become: yes
+  vars_files:
+    - inventory/group_vars/secrets.yml
+  roles:
+    - etcd_multi_tenant
