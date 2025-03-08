@@ -1,12 +1,16 @@
 etcd_version: v3.5.17
 
 etcd_nodes:
-  - name: ip-10-0-1-222
-    ip: 10.0.1.222
-  - name: ip-10-0-1-180
-    ip: 10.0.1.180
-  - name: ip-10-0-1-230
-    ip: 10.0.1.230
+  - name: ip-10-0-1-113
+    ip: 10.0.1.113
+  - name: ip-10-0-1-28
+    ip: 10.0.1.28
+  - name: ip-10-0-1-204
+    ip: 10.0.1.204
+  - name: ip-10-0-1-81
+    ip: 10.0.1.81
+  - name: ip-10-0-1-195
+    ip: 10.0.1.195
 
 etcd_data_dir: /var/lib/etcd
 etcd_config_dir: /etc/etcd
@@ -19,6 +23,7 @@ tenant_user: tenant1
 tenant_role: tenant-role
 tenant_prefix: "/tenant1/"
 
+cert_dir: "/tmp/etcd-certs"
 remote_cert_dir: "/etc/etcd/ssl"
 etcd_ca_cert: "{{ remote_cert_dir }}/ca.pem"
 etcd_server_cert: "{{ remote_cert_dir }}/{{ inventory_hostname }}.pem"

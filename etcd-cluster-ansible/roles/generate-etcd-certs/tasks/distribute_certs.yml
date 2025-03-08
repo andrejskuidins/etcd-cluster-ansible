@@ -6,6 +6,12 @@
   become: true
   run_once: true  # Ensures this only runs once
 
+- name: Create etcd system user
+  user:
+    name: etcd
+    system: yes
+    shell: /sbin/nologin
+
 - name: Copy certificates to etcd nodes
   copy:
     src: "{{ item }}"
