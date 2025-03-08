@@ -1,0 +1,37 @@
+- name: Copy etcd server cert template
+  template:
+    src: "etcd-server.json.j2"
+    dest: "{{ cert_dir }}/{{ node.name }}-server-csr.json"
+
+- name: Check if etcd server certificate already exists
+  stat:
+    path: "{{ cert_dir }}/{{ node.name }}.pem"
+  register: etcd_cert
+
+- name: Generate etcd server certificate
+  shell: cfssl gencert -ca={{ cert_dir }}/ca.pem -ca-key={{ cert_dir }}/ca-key.pem \
+         -config={{ cert_dir }}/ca-config.json -hostname={{ node.ip }},{{ node.name }} \
+         -profile=etcd {{ cert_dir }}/{{ node.name }}-server-csr.json | cfssljson -bare {{ node.name }}
+  args:
+    chdir: "{{ cert_dir }}"
+  when: not etcd_cert.stat.exists
+
+- name: Copy etcd peer cert template
+  template:
+    src: "etcd-peer.json.j2"
+    dest: "{{ cert_dir }}/{{ node.name }}-peer.json"
+
+- name: Check if etcd peer certificate already exists
+  stat:
+    path: "{{ cert_dir }}/{{ node.name }}-peer.pem"
+  register: etcd_peer_cert_status
+
+- name: Generate etcd peer certificate
+  shell: >
+    cfssl gencert -ca={{ cert_dir }}/ca.pem -ca-key={{ cert_dir }}/ca-key.pem
+    -config={{ cert_dir }}/ca-config.json -profile=etcd
+    {{ cert_dir }}/{{ node.name }}-peer.json | cfssljson -bare {{ node.name }}-peer
+  args:
+    chdir: "{{ cert_dir }}"
+  when: not etcd_peer_cert_status.stat.exists
+

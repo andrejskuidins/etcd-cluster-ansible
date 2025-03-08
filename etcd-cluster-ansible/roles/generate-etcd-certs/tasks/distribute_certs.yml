@@ -1,0 +1,24 @@
+- name: Ensure etcd certificate directory exists on remote node
+  file:
+    path: "{{ remote_cert_dir }}"
+    state: directory
+  delegate_to: "{{ node.name }}"
+  become: true
+  run_once: true  # Ensures this only runs once
+
+- name: Copy certificates to etcd nodes
+  copy:
+    src: "{{ item }}"
+    dest: "{{ remote_cert_dir }}/"
+    owner: etcd
+    group: etcd
+    mode: '0600'
+  with_items:
+    - "{{ cert_dir }}/ca.pem"
+    - "{{ cert_dir }}/{{ node.name }}.pem"
+    - "{{ cert_dir }}/{{ node.name }}-key.pem"
+    - "{{ cert_dir }}/{{ node.name }}-peer.pem"
+    - "{{ cert_dir }}/{{ node.name }}-peer-key.pem"
+  delegate_to: "{{ node.name }}"
+  become: true
+  run_once: true  # Ensures this only runs once

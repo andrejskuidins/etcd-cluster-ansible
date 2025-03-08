@@ -1,0 +1,35 @@
+- name: Ensure local cert directory exists
+  file:
+    path: "{{ cert_dir }}"
+    state: directory
+
+- name: Install CFSSL tools
+  get_url:
+    url: "https://pkg.cfssl.org/R1.2/{{ item }}_linux-amd64"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: '0755'
+  loop:
+    - cfssl
+    - cfssljson
+
+- name: Generate CA certificate
+  include_tasks: generate_ca.yml
+
+- name: Generate certificates for etcd nodes
+  include_tasks: generate_certs.yml
+  loop: "{{ etcd_nodes }}"
+  loop_control:
+    loop_var: node
+
+- name: Distribute certificates to etcd nodes
+  include_tasks: distribute_certs.yml
+  loop: "{{ etcd_nodes }}"
+  loop_control:
+    loop_var: node
+
+- name: Change ownership of etcd SSL files
+  file:
+    path: "{{ remote_cert_dir }}"
+    owner: etcd
+    group: etcd
+    recurse: yes

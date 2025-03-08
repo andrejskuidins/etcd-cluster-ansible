@@ -1,0 +1,21 @@
+- name: Copy CA config template
+  template:
+    src: "ca-config.json.j2"
+    dest: "{{ cert_dir }}/ca-config.json"
+
+- name: Copy CA CSR template
+  template:
+    src: "ca-csr.json.j2"
+    dest: "{{ cert_dir }}/ca-csr.json"
+
+- name: Check if CA certificate already exists
+  stat:
+    path: "{{ cert_dir }}/ca.pem"
+  register: ca_cert
+
+- name: Generate CA certificate and key
+  shell: cfssl gencert -initca {{ cert_dir }}/ca-csr.json | cfssljson -bare ca
+  args:
+    chdir: "{{ cert_dir }}"
+  when: not ca_cert.stat.exists
+
