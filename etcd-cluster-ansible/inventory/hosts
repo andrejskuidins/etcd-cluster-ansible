@@ -1,4 +1,6 @@
 [etcd_cluster]
-ip-10-0-1-222 ansible_host=10.0.1.222
-ip-10-0-1-180 ansible_host=10.0.1.180
-ip-10-0-1-230 ansible_host=10.0.1.230
+ip-10-0-1-113 ansible_host=10.0.1.113
+ip-10-0-1-28 ansible_host=10.0.1.28
+ip-10-0-1-204 ansible_host=10.0.1.204
+ip-10-0-1-81 ansible_host=10.0.1.81
+ip-10-0-1-195 ansible_host=10.0.1.195
